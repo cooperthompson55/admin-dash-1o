@@ -7,6 +7,7 @@ import { formatDate, formatCurrency } from "@/lib/utils"
 import { ChevronUp, ChevronDown, Phone, Mail, MapPin, Clock } from "lucide-react"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { RelativeTime } from "@/components/relative-time"
+import { StatusDropdown } from "@/components/status-dropdown"
 
 // Define types based on the provided schema
 type Address = {
@@ -35,6 +36,7 @@ type Booking = {
   preferred_date: string
   property_status: string
   status: string
+  payment_status?: string // Add this field
   user_id: string | null
   agent_name: string
   agent_email: string
@@ -50,6 +52,8 @@ interface BookingsTableProps {
 }
 
 export function BookingsTable({ bookings }: BookingsTableProps) {
+  // Ensure bookings is always an array
+  const safeBookings = Array.isArray(bookings) ? bookings : []
   const [sortField, setSortField] = useState<SortField>("created_at") // Default sort by created_at
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc") // Default sort direction is descending (newest first)
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
@@ -70,11 +74,21 @@ export function BookingsTable({ bookings }: BookingsTableProps) {
     setExpandedRowId(expandedRowId === id ? null : id)
   }
 
-  const sortedBookings = [...bookings].sort((a, b) => {
-    const dateA = new Date(a[sortField]).getTime()
-    const dateB = new Date(b[sortField]).getTime()
+  const sortedBookings = [...safeBookings].sort((a, b) => {
+    // Handle potential invalid dates
+    try {
+      const dateA = new Date(a[sortField]).getTime()
+      const dateB = new Date(b[sortField]).getTime()
 
-    return sortDirection === "asc" ? dateA - dateB : dateB - dateA
+      if (isNaN(dateA) || isNaN(dateB)) {
+        return 0
+      }
+
+      return sortDirection === "asc" ? dateA - dateB : dateB - dateA
+    } catch (e) {
+      console.error("Error sorting dates:", e)
+      return 0
+    }
   })
 
   // Parse address - handles both string and object
@@ -134,7 +148,22 @@ export function BookingsTable({ bookings }: BookingsTableProps) {
                     <h3 className="font-medium text-gray-900">{booking.agent_name}</h3>
                     <p className="text-sm text-gray-500">{booking.agent_company}</p>
                   </div>
-                  <StatusBadge status={booking.status} />
+                  <StatusDropdown
+                    bookingId={booking.id}
+                    currentStatus={booking.status}
+                    statusType="status"
+                    options={[
+                      { value: "Pending", label: "Pending", color: "bg-yellow-100 text-yellow-800 border-yellow-200" },
+                      { value: "Scheduled", label: "Scheduled", color: "bg-blue-100 text-blue-800 border-blue-200" },
+                      { value: "Completed", label: "Completed", color: "bg-green-100 text-green-800 border-green-200" },
+                      {
+                        value: "Delivered",
+                        label: "Delivered",
+                        color: "bg-purple-100 text-purple-800 border-purple-200",
+                      },
+                      { value: "Canceled", label: "Canceled", color: "bg-red-100 text-red-800 border-red-200" },
+                    ]}
+                  />
                 </div>
               </div>
 
@@ -252,7 +281,34 @@ export function BookingsTable({ bookings }: BookingsTableProps) {
                     </TableCell>
                     <TableCell>{formatDate(booking.preferred_date)}</TableCell>
                     <TableCell>
-                      <StatusBadge status={booking.status} />
+                      <StatusDropdown
+                        bookingId={booking.id}
+                        currentStatus={booking.status}
+                        statusType="status"
+                        options={[
+                          {
+                            value: "Pending",
+                            label: "Pending",
+                            color: "bg-yellow-100 text-yellow-800 border-yellow-200",
+                          },
+                          {
+                            value: "Scheduled",
+                            label: "Scheduled",
+                            color: "bg-blue-100 text-blue-800 border-blue-200",
+                          },
+                          {
+                            value: "Completed",
+                            label: "Completed",
+                            color: "bg-green-100 text-green-800 border-green-200",
+                          },
+                          {
+                            value: "Delivered",
+                            label: "Delivered",
+                            color: "bg-purple-100 text-purple-800 border-purple-200",
+                          },
+                          { value: "Canceled", label: "Canceled", color: "bg-red-100 text-red-800 border-red-200" },
+                        ]}
+                      />
                     </TableCell>
                     <TableCell>{formatCurrency(booking.total_amount)}</TableCell>
                     <TableCell>
@@ -290,17 +346,22 @@ export function BookingsTable({ bookings }: BookingsTableProps) {
   )
 }
 
+// Update the StatusBadge function to handle more status types
 function StatusBadge({ status }: { status: string }) {
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case "confirmed":
+      case "completed":
         return "bg-green-100 text-green-800"
       case "pending":
         return "bg-yellow-100 text-yellow-800"
       case "cancelled":
+      case "canceled":
         return "bg-red-100 text-red-800"
-      case "completed":
+      case "scheduled":
         return "bg-blue-100 text-blue-800"
+      case "delivered":
+        return "bg-purple-100 text-purple-800"
       default:
         return "bg-gray-100 text-gray-800"
     }
@@ -474,15 +535,56 @@ function ExpandedBookingDetails({ booking }: { booking: Booking }) {
               </div>
               <div>
                 <span className="text-xs text-gray-500 block">Payment Status</span>
-                <p className="text-sm">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                    Not Paid
-                  </span>
-                </p>
+                <div className="mt-1">
+                  <StatusDropdown
+                    bookingId={booking.id}
+                    currentStatus={booking.payment_status || "Not Paid"}
+                    statusType="payment_status"
+                    options={[
+                      {
+                        value: "Not Paid",
+                        label: "Not Paid",
+                        color: "bg-yellow-100 text-yellow-800 border-yellow-200",
+                      },
+                      {
+                        value: "Paid (E-Transfer)",
+                        label: "Paid (E-Transfer)",
+                        color: "bg-green-100 text-green-800 border-green-200",
+                      },
+                      {
+                        value: "Paid (Credit Card)",
+                        label: "Paid (Credit Card)",
+                        color: "bg-green-100 text-green-800 border-green-200",
+                      },
+                      {
+                        value: "Paid (Cash)",
+                        label: "Paid (Cash)",
+                        color: "bg-green-100 text-green-800 border-green-200",
+                      },
+                    ]}
+                  />
+                </div>
               </div>
               <div>
                 <span className="text-xs text-gray-500 block">Job Status</span>
-                <StatusBadge status={booking.status} />
+                <div className="mt-1">
+                  <StatusDropdown
+                    bookingId={booking.id}
+                    currentStatus={booking.status}
+                    statusType="status"
+                    options={[
+                      { value: "Pending", label: "Pending", color: "bg-yellow-100 text-yellow-800 border-yellow-200" },
+                      { value: "Scheduled", label: "Scheduled", color: "bg-blue-100 text-blue-800 border-blue-200" },
+                      { value: "Completed", label: "Completed", color: "bg-green-100 text-green-800 border-green-200" },
+                      {
+                        value: "Delivered",
+                        label: "Delivered",
+                        color: "bg-purple-100 text-purple-800 border-purple-200",
+                      },
+                      { value: "Canceled", label: "Canceled", color: "bg-red-100 text-red-800 border-red-200" },
+                    ]}
+                  />
+                </div>
               </div>
             </div>
           </div>

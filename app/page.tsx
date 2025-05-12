@@ -28,9 +28,10 @@ export default function AdminDashboard() {
   const pollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const { toast } = useToast()
 
-  // Function to fetch all bookings
+  // Replace the entire fetchBookings function with this improved version that includes retry logic and better error handling:
+
   const fetchBookings = useCallback(
-    async (isManualRefresh = false, silent = false) => {
+    async (isManualRefresh = false, silent = false, retryCount = 0) => {
       try {
         if (isManualRefresh) {
           setRefreshing(true)
@@ -42,14 +43,24 @@ export default function AdminDashboard() {
 
         console.log("Fetching bookings...", new Date().toISOString())
 
-        const { data, error: supabaseError } = await supabase
-          .from("bookings")
-          .select("*")
-          .order("created_at", { ascending: false }) // Order by newest first
+        // Check if Supabase client is properly initialized
+        if (!supabaseUrl || !supabaseAnonKey) {
+          console.error("Supabase URL or key is missing")
+          if (!silent) setError("Database configuration is incomplete. Please check your environment variables.")
+          return
+        }
+
+        // Add a timeout to the fetch operation
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Request timeout")), 10000))
+
+        const fetchPromise = supabase.from("bookings").select("*").order("created_at", { ascending: false })
+
+        // Race between fetch and timeout
+        const { data, error: supabaseError } = (await Promise.race([fetchPromise, timeoutPromise])) as any
 
         if (supabaseError) {
           console.error("Error fetching bookings:", supabaseError)
-          if (!silent) setError("Failed to load bookings. Please try again.")
+          if (!silent) setError(`Failed to load bookings: ${supabaseError.message || "Unknown error"}`)
           return
         }
 
@@ -77,9 +88,23 @@ export default function AdminDashboard() {
         }
 
         return data
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error fetching bookings:", err)
-        if (!silent) setError("An unexpected error occurred. Please try again.")
+
+        // Implement retry logic (up to 3 retries)
+        if (retryCount < 3 && !silent) {
+          console.log(`Retrying fetch (attempt ${retryCount + 1})...`)
+          // Wait for a short delay before retrying
+          await new Promise((resolve) => setTimeout(resolve, 1000 * (retryCount + 1)))
+          return fetchBookings(isManualRefresh, silent, retryCount + 1)
+        }
+
+        // If we've exhausted retries or it's a silent fetch, show error
+        if (!silent) {
+          setError(
+            `Connection error: ${err.message || "Failed to connect to the database"}. Please check your network connection and try again.`,
+          )
+        }
       } finally {
         if (!silent) {
           setLoading(false)
@@ -90,33 +115,27 @@ export default function AdminDashboard() {
     [lastUpdated, toast],
   )
 
-  // Function to schedule the next poll
+  // Define schedulePoll within the component scope
   const schedulePoll = useCallback(() => {
-    // Clear any existing timeout
     if (pollTimeoutRef.current) {
       clearTimeout(pollTimeoutRef.current)
     }
-
-    // Schedule the next poll
-    pollTimeoutRef.current = setTimeout(async () => {
-      console.log("Polling for new bookings...", new Date().toISOString())
-      const newData = await fetchBookings(false, true)
-
-      if (newData && (!bookings.length || JSON.stringify(newData) !== JSON.stringify(bookings))) {
-        console.log("New data detected, updating UI")
-        setBookings(newData)
-        setLastUpdated(new Date())
-      } else {
-        console.log("No changes detected")
-      }
-
-      // Schedule the next poll
+    pollTimeoutRef.current = setTimeout(() => {
+      fetchBookings(false, true) // Silent refresh
       schedulePoll()
     }, POLLING_INTERVAL)
-  }, [bookings, fetchBookings])
+  }, [fetchBookings])
 
-  // Initial data fetch and set up polling
+  // Replace the initial useEffect with this improved version:
+
   useEffect(() => {
+    // Check if Supabase is properly configured
+    if (!supabaseUrl || !supabaseAnonKey) {
+      setError("Database configuration is incomplete. Please check your environment variables.")
+      setLoading(false)
+      return
+    }
+
     // Fetch data immediately on page load
     fetchBookings()
 
@@ -198,26 +217,53 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+        {/* Replace the error section in the return statement with this improved version: */}
+
         {error ? (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">
-            {error}
-            <Button variant="link" size="sm" onClick={handleManualRefresh} className="text-red-700 underline ml-2">
-              Try again
-            </Button>
+            <div className="flex flex-col space-y-2">
+              <div className="font-medium">Error loading bookings</div>
+              <p>{error}</p>
+              <div className="mt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleManualRefresh}
+                  className="text-red-700 border-red-300 hover:bg-red-50"
+                >
+                  Retry
+                </Button>
+              </div>
+            </div>
           </div>
         ) : loading && !lastUpdated ? (
           <div className="flex justify-center items-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
             <span className="ml-2 text-gray-500">Loading bookings...</span>
           </div>
+        ) : bookings.length === 0 ? (
+          <div className="bg-white rounded-lg shadow p-8 text-center">
+            <div className="text-gray-500 mb-4">No bookings found</div>
+            <p className="text-sm text-gray-400 mb-4">
+              This could be because the bookings table is empty or hasn't been created yet.
+            </p>
+            <Button variant="outline" size="sm" onClick={handleManualRefresh}>
+              <RefreshCw className="h-3 w-3 mr-1" />
+              Refresh
+            </Button>
+          </div>
         ) : (
           <BookingsTable bookings={bookings} />
         )}
+
+        {/* Add this debug section at the bottom of the component to help with troubleshooting: */}
 
         {/* Debug info - remove in production */}
         <div className="mt-8 text-xs text-gray-400 border-t pt-4">
           <p>Debug: Last poll attempt: {new Date().toLocaleTimeString()}</p>
           <p>Polling interval: {POLLING_INTERVAL / 1000} seconds</p>
+          <p>Supabase URL configured: {supabaseUrl ? "Yes" : "No"}</p>
+          <p>Supabase Key configured: {supabaseAnonKey ? "Yes (length: " + supabaseAnonKey.length + ")" : "No"}</p>
           <p>Browser: {navigator.userAgent}</p>
         </div>
       </main>
