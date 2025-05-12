@@ -150,19 +150,17 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <TopNavigation />
       <main className="flex-1 container mx-auto px-4 py-6 md:py-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Bookings Overview</h1>
+          <h1 className="text-xl md:text-2xl font-bold">Bookings Overview</h1>
           <div className="flex items-center space-x-3 mt-2 md:mt-0">
-            <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+            <div className="flex items-center text-sm text-gray-500">
               {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               <span>{bookings.length} bookings</span>
               {lastUpdated && (
-                <span className="ml-2 text-gray-400 dark:text-gray-500">
-                  · Updated {formatRelativeTime(lastUpdated.toISOString())}
-                </span>
+                <span className="ml-2 text-gray-400">· Updated {formatRelativeTime(lastUpdated.toISOString())}</span>
               )}
             </div>
 
@@ -171,7 +169,7 @@ export default function AdminDashboard() {
                 variant="outline"
                 size="sm"
                 onClick={handleManualRefresh}
-                className="text-xs h-8 bg-green-50 text-green-700 border-green-200 hover:bg-green-100 hover:text-green-800 dark:bg-green-900/20 dark:text-green-400 dark:border-green-900 dark:hover:bg-green-900/30 dark:hover:text-green-300"
+                className="text-xs h-8 bg-green-50 text-green-700 border-green-200 hover:bg-green-100 hover:text-green-800"
               >
                 <Bell className="h-3 w-3 mr-1" />
                 {newBookingsCount} new booking{newBookingsCount > 1 ? "s" : ""}
@@ -201,25 +199,27 @@ export default function AdminDashboard() {
         </div>
 
         {error ? (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded mb-6">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">
             {error}
-            <Button
-              variant="link"
-              size="sm"
-              onClick={handleManualRefresh}
-              className="text-red-700 dark:text-red-400 underline ml-2"
-            >
+            <Button variant="link" size="sm" onClick={handleManualRefresh} className="text-red-700 underline ml-2">
               Try again
             </Button>
           </div>
         ) : loading && !lastUpdated ? (
           <div className="flex justify-center items-center py-20">
-            <Loader2 className="h-8 w-8 animate-spin text-gray-400 dark:text-gray-600" />
-            <span className="ml-2 text-gray-500 dark:text-gray-400">Loading bookings...</span>
+            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            <span className="ml-2 text-gray-500">Loading bookings...</span>
           </div>
         ) : (
           <BookingsTable bookings={bookings} />
         )}
+
+        {/* Debug info - remove in production */}
+        <div className="mt-8 text-xs text-gray-400 border-t pt-4">
+          <p>Debug: Last poll attempt: {new Date().toLocaleTimeString()}</p>
+          <p>Polling interval: {POLLING_INTERVAL / 1000} seconds</p>
+          <p>Browser: {navigator.userAgent}</p>
+        </div>
       </main>
     </div>
   )
