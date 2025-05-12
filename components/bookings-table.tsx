@@ -50,8 +50,8 @@ interface BookingsTableProps {
 }
 
 export function BookingsTable({ bookings }: BookingsTableProps) {
-  const [sortField, setSortField] = useState<SortField>("preferred_date")
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
+  const [sortField, setSortField] = useState<SortField>("created_at") // Default sort by created_at
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc") // Default sort direction is descending (newest first)
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
   const isMobile = useMediaQuery("(max-width: 768px)")
 
@@ -60,7 +60,9 @@ export function BookingsTable({ bookings }: BookingsTableProps) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc")
     } else {
       setSortField(field)
-      setSortDirection("asc")
+      // If switching to created_at, default to desc (newest first)
+      // If switching to preferred_date, default to asc (soonest first)
+      setSortDirection(field === "created_at" ? "desc" : "asc")
     }
   }
 
