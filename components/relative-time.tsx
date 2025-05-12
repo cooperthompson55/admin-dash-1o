@@ -4,24 +4,25 @@ import { useEffect, useState } from "react"
 import { formatRelativeTime } from "@/lib/utils"
 
 interface RelativeTimeProps {
-  date: string
+  date: string | Date
   className?: string
 }
 
 export function RelativeTime({ date, className }: RelativeTimeProps) {
-  const [relativeTime, setRelativeTime] = useState(formatRelativeTime(date))
+  const dateString = date instanceof Date ? date.toISOString() : date
+  const [relativeTime, setRelativeTime] = useState(formatRelativeTime(dateString))
 
   useEffect(() => {
     // Update immediately
-    setRelativeTime(formatRelativeTime(date))
+    setRelativeTime(formatRelativeTime(dateString))
 
     // Set up interval to update the relative time
     const intervalId = setInterval(() => {
-      setRelativeTime(formatRelativeTime(date))
+      setRelativeTime(formatRelativeTime(dateString))
     }, 10000) // Update every 10 seconds
 
     return () => clearInterval(intervalId)
-  }, [date])
+  }, [dateString])
 
   return <span className={className}>{relativeTime}</span>
 }

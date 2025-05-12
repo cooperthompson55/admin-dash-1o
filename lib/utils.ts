@@ -5,18 +5,18 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatDate(dateString: string): string {
-  if (!dateString) return "N/A"
+export function formatDate(dateInput: string | Date): string {
+  if (!dateInput) return "N/A"
 
   try {
-    const date = new Date(dateString)
+    const date = typeof dateInput === "string" ? new Date(dateInput) : dateInput
     return new Intl.DateTimeFormat("en-US", {
       year: "numeric",
       month: "short",
       day: "numeric",
     }).format(date)
   } catch (e) {
-    return dateString
+    return String(dateInput)
   }
 }
 
@@ -29,17 +29,17 @@ export function formatCurrency(amount: number): string {
   }).format(amount)
 }
 
-export function formatRelativeTime(dateString: string): string {
-  if (!dateString) return "N/A"
+export function formatRelativeTime(dateInput: string | Date): string {
+  if (!dateInput) return "N/A"
 
   try {
-    const date = new Date(dateString)
+    const date = typeof dateInput === "string" ? new Date(dateInput) : dateInput
     const now = new Date()
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
 
     // Less than a minute
     if (diffInSeconds < 60) {
-      return `${diffInSeconds} second${diffInSeconds !== 1 ? "s" : ""} ago`
+      return diffInSeconds <= 5 ? "just now" : `${diffInSeconds} second${diffInSeconds !== 1 ? "s" : ""} ago`
     }
 
     // Less than an hour
@@ -76,6 +76,6 @@ export function formatRelativeTime(dateString: string): string {
     const diffInYears = Math.floor(diffInDays / 365)
     return `${diffInYears} year${diffInYears !== 1 ? "s" : ""} ago`
   } catch (e) {
-    return dateString
+    return String(dateInput)
   }
 }
