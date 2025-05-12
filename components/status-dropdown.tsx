@@ -35,17 +35,20 @@ export function StatusDropdown({ bookingId, currentStatus, statusType, options }
     }
 
     setIsUpdating(true)
+    console.log(`Changing ${statusType} from "${status}" to "${newStatus}" for booking ${bookingId}`)
 
     try {
       const result = await updateBookingStatus(bookingId, statusType, newStatus)
+      console.log("Update result:", result)
 
       if (result.success) {
         setStatus(newStatus)
         toast({
           title: "Status updated",
-          description: `${statusType === "payment_status" ? "Payment status" : "Job status"} has been updated.`,
+          description: `${statusType === "payment_status" ? "Payment status" : "Job status"} has been updated to "${newStatus}".`,
         })
       } else {
+        console.error("Update failed:", result.error, result.details || "")
         toast({
           title: "Update failed",
           description: result.error || "Failed to update status. Please try again.",
@@ -53,9 +56,10 @@ export function StatusDropdown({ bookingId, currentStatus, statusType, options }
         })
       }
     } catch (error) {
+      console.error("Error in handleStatusChange:", error)
       toast({
         title: "Update failed",
-        description: "An error occurred while updating the status.",
+        description: "An unexpected error occurred while updating the status.",
         variant: "destructive",
       })
     } finally {

@@ -22,7 +22,29 @@ try {
       persistSession: true,
       autoRefreshToken: true,
     },
+    db: {
+      schema: "public",
+    },
+    global: {
+      headers: {
+        "x-application-name": "admin-dashboard",
+      },
+    },
   })
+
+  // Test the connection
+  if (typeof window !== "undefined") {
+    supabase
+      .from("bookings")
+      .select("count", { count: "exact", head: true })
+      .then(({ count, error }) => {
+        if (error) {
+          console.error("Supabase connection test failed:", error)
+        } else {
+          console.log(`Supabase connection test successful. Found ${count} bookings.`)
+        }
+      })
+  }
 } catch (error) {
   console.error("Failed to initialize Supabase client:", error)
   // Create a dummy client that will return empty results to prevent app crashes
@@ -30,6 +52,11 @@ try {
     from: () => ({
       select: () => ({
         order: () => Promise.resolve({ data: [], error: new Error("Supabase client initialization failed") }),
+      }),
+      update: () => ({
+        eq: () => ({
+          select: () => Promise.resolve({ data: null, error: new Error("Supabase client initialization failed") }),
+        }),
       }),
     }),
     // Add other required methods as needed

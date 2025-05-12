@@ -1,18 +1,14 @@
 "use client"
 
 import { useEffect, useState, useCallback, useRef } from "react"
-import { createClient } from "@supabase/supabase-js"
 import { BookingsTable } from "@/components/bookings-table"
 import { TopNavigation } from "@/components/top-navigation"
 import { Loader2, RefreshCw, Bell } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { formatRelativeTime } from "@/lib/utils"
 import { useToast } from "@/components/ui/use-toast"
-
-// Create Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
+import { DebugPanel } from "@/components/debug-panel"
+import { supabase } from "@/lib/supabase"
 
 // Polling interval in milliseconds (30 seconds for more frequent checks)
 const POLLING_INTERVAL = 30 * 1000
@@ -42,13 +38,6 @@ export default function AdminDashboard() {
         if (!silent) setError(null)
 
         console.log("Fetching bookings...", new Date().toISOString())
-
-        // Check if Supabase client is properly initialized
-        if (!supabaseUrl || !supabaseAnonKey) {
-          console.error("Supabase URL or key is missing")
-          if (!silent) setError("Database configuration is incomplete. Please check your environment variables.")
-          return
-        }
 
         // Add a timeout to the fetch operation
         const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Request timeout")), 10000))
@@ -129,13 +118,6 @@ export default function AdminDashboard() {
   // Replace the initial useEffect with this improved version:
 
   useEffect(() => {
-    // Check if Supabase is properly configured
-    if (!supabaseUrl || !supabaseAnonKey) {
-      setError("Database configuration is incomplete. Please check your environment variables.")
-      setLoading(false)
-      return
-    }
-
     // Fetch data immediately on page load
     fetchBookings()
 
@@ -256,16 +238,8 @@ export default function AdminDashboard() {
           <BookingsTable bookings={bookings} />
         )}
 
-        {/* Add this debug section at the bottom of the component to help with troubleshooting: */}
-
-        {/* Debug info - remove in production */}
-        <div className="mt-8 text-xs text-gray-400 border-t pt-4">
-          <p>Debug: Last poll attempt: {new Date().toLocaleTimeString()}</p>
-          <p>Polling interval: {POLLING_INTERVAL / 1000} seconds</p>
-          <p>Supabase URL configured: {supabaseUrl ? "Yes" : "No"}</p>
-          <p>Supabase Key configured: {supabaseAnonKey ? "Yes (length: " + supabaseAnonKey.length + ")" : "No"}</p>
-          <p>Browser: {navigator.userAgent}</p>
-        </div>
+        {/* Add the debug panel */}
+        <DebugPanel />
       </main>
     </div>
   )
