@@ -10,6 +10,41 @@ import { formatRelativeTime } from "@/lib/utils"
 import { useToast } from "@/components/ui/use-toast"
 import { updateBookings, type BookingUpdate } from "./actions"
 
+// Define types
+type Booking = {
+  id: string
+  status: string
+  payment_status?: string
+  agent_name: string
+  agent_company: string
+  agent_email: string
+  agent_phone: number
+  address: string | Address
+  property_size: string
+  property_status: string
+  preferred_date: string
+  created_at: string
+  total_amount: number
+  services: string | Service[]
+  notes: string
+  user_id: string | null
+}
+
+type Address = {
+  city: string
+  street: string
+  street2?: string
+  zipCode: string
+  province: string
+}
+
+type Service = {
+  name: string
+  count: number
+  price: number
+  total: number
+}
+
 // Create Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
@@ -19,7 +54,7 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey)
 const POLLING_INTERVAL = 30 * 1000
 
 export default function AdminDashboard() {
-  const [bookings, setBookings] = useState([])
+  const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -156,7 +191,7 @@ export default function AdminDashboard() {
   // Handle status changes
   const handleStatusChange = (bookingId: string, field: "status" | "payment_status", value: string) => {
     // Check if we already have a pending change for this booking
-    const existingChangeIndex = pendingChanges.findIndex((change) => change.id === bookingId)
+    const existingChangeIndex = pendingChanges.findIndex((change: BookingUpdate) => change.id === bookingId)
 
     if (existingChangeIndex >= 0) {
       // Update the existing change
@@ -178,23 +213,20 @@ export default function AdminDashboard() {
     }
   }
 
-  // Handle saving changes
+  // Handle save changes
   const handleSaveChanges = async () => {
     if (pendingChanges.length === 0) return
 
     setSaving(true)
     try {
       const result = await updateBookings(pendingChanges)
-
       if (result.success) {
         toast({
-          title: "Changes saved",
+          title: "Success",
           description: result.message,
           variant: "default",
         })
-        setPendingChanges([])
-        // Refresh the data
-        await fetchBookings(true)
+        setPendingChanges([]) // Clear pending changes after successful save
       } else {
         toast({
           title: "Error",
@@ -203,10 +235,9 @@ export default function AdminDashboard() {
         })
       }
     } catch (error) {
-      console.error("Error saving changes:", error)
       toast({
         title: "Error",
-        description: "An unexpected error occurred while saving changes.",
+        description: "Failed to save changes. Please try again.",
         variant: "destructive",
       })
     } finally {
